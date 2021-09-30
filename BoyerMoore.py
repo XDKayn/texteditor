@@ -16,6 +16,8 @@ class BoyerMoore:
             while i >= 0 and self.pattern[i] == self.text[i + j]:
                 i -= 1
             if i < 0:
+                # print('pos: ', j)
+                # j += good_suffix[0]
                 return j
             else:
                 j += max(bad_character[ord(self.text[i + j])] - self.m + 1 + i, good_suffix[i])
@@ -78,4 +80,4 @@ if __name__ == '__main__':
     print(pattern)
     print("Matched Position:", bm.boyer_moore())
     # print(text.find(pattern))
-    print([1] * 5)
+    # print([1] * 5)

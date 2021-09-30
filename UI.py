@@ -130,24 +130,35 @@ class TextEditor(QtWidgets.QPlainTextEdit):
         return t
 
     def keyPressEvent(self, e: QtGui.QKeyEvent) -> None:
-        cursor = self.textCursor()  # 获取当前光标
+        cursor = self.textCursor()
+        text_change = ''
         if e.text():
-            if 32 <= ord(e.text()[0]) <= 126:  # 输入普通字符
+            print(e.text(), len(e.text()))
+            print(e.text().encode('utf-8'))
+            if 32 <= ord(e.text()[0]) <= 126:
                 self.pt.insert(cursor.position(), e.text())
-                self.send_cmd('insert %d %s' % (cursor.position(), e.text()))  # 向其他客户端发送当前的操作
-            elif e.key() == QtCore.Qt.Key_Return:  # 输入回车
+                self.send_cmd('insert %d %s' % (cursor.position(), e.text()))
+                # self.socket.write(('insert %d %s' % (cursor.position(), e.text())).encode('utf-8'))
+            elif e.key() == QtCore.Qt.Key_Return:
                 self.pt.insert(cursor.position(), '\n')
-                self.send_cmd('insert %d %s' % (cursor.position(), '\n'))  # 向其他客户端发送当前的操作
-            elif e.key() == QtCore.Qt.Key_Tab:  # 输入制表符
+                self.send_cmd('insert %d %s' % (cursor.position(), '\n'))
+                # self.socket.write(('insert %d %s' % (cursor.position(), '\n')).encode('utf-8'))
+            elif e.key() == QtCore.Qt.Key_Tab:
                 self.pt.insert(cursor.position(), '\t')
-                self.send_cmd('insert %d %s' % (cursor.position(), '\t'))  # 向其他客户端发送当前的操作
-            elif e.key() == QtCore.Qt.Key_Backspace or e.text().encode('utf-8') == b'\x08':  # 退格
+                self.send_cmd('insert %d %s' % (cursor.position(), '\t'))
+                # self.socket.write(('insert %d %s' % (cursor.position(), ' ' * self.tab_width)).encode('utf-8'))
+            elif e.key() == QtCore.Qt.Key_Backspace or e.text().encode('utf-8') == b'\x08':
+                print(cursor.position())
                 self.pt.delete(cursor.position() - 1, cursor.position() - 1)
-                self.send_cmd('backspace %d' % cursor.position())  # 向其他客户端发送当前的操作
-            elif e.key() == QtCore.Qt.Key_Delete or e.text().encode('utf-8') == b'\x7f':  # 删除后一个字符
+                self.send_cmd('backspace %d' % cursor.position())
+                # self.socket.write(('backspace %d' % cursor.position()).encode('utf-8'))
+            elif e.key() == QtCore.Qt.Key_Delete or e.text().encode('utf-8') == b'\x7f':
                 self.pt.delete(cursor.position(), cursor.position())
 
-        return QtWidgets.QPlainTextEdit.keyPressEvent(self, e)
+        t = QtWidgets.QPlainTextEdit.keyPressEvent(self, e)
+        print(self.pt.get_sequence().encode('utf-8'))
+        print('-' * 20)
+        return t
 
     def mouseReleaseEvent(self, e: QtGui.QMouseEvent) -> None:
         cursor = self.textCursor()
@@ -217,11 +228,7 @@ class TextEditor(QtWidgets.QPlainTextEdit):
         if not begin:
             begin = 0
         pattern = self.find_field.text()
-        start = time.time()
         index = self.pt.find(pattern, begin)
-        end = time.time()
-        print(len(self.pt.get_sequence()))
-        print((end - start))
         self.select_text(index, len(pattern))
         if self.socket and send:
             self.send_cmd('find %d %d' % (index, len(pattern)))
@@ -799,9 +806,9 @@ class AlphaCoder(QtWidgets.QMainWindow):
             t = self.filenames[self.cur_tab].rsplit('/', maxsplit=1)
             os.chdir(t[0])
             # start = time.time()
-            os.system('gcc ' + t[1] + ' -o ' + 'tmp')
+            os.system('gcc ' + t[1] + ' -o ' + 'tmp.exe')
             start = time.time()
-            res = os.popen('./tmp')
+            res = os.popen('tmp.exe')
             end = time.time()
         elif self.languages[self.cur_tab] == 'py':
             start = time.time()
@@ -860,15 +867,12 @@ class AlphaCoder(QtWidgets.QMainWindow):
 
     def open_all(self):
         fname = self.filenames[self.cur_tab]
-        if fname.rsplit('.', maxsplit=1)[-1] == 'ac':
-            content = Huffman().decode(fname)
-        else:
-            try:
-                with open(fname, 'r', encoding='UTF-8') as f:
-                    content = f.read()
-            except UnicodeDecodeError:
-                with open(fname, 'r', encoding='GBK') as f:
-                    content = f.read()
+        try:
+            with open(fname, 'r', encoding='UTF-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            with open(fname, 'r', encoding='GBK') as f:
+                content = f.read()
         self.new_tab()
         self.filenames[self.cur_tab] = fname
         self.rightTabWidget.setTabText(self.rightTabWidget.currentIndex(), fname)
@@ -882,29 +886,26 @@ class AlphaCoder(QtWidgets.QMainWindow):
 
     def open_lines(self):
         fname = self.filenames[self.cur_tab]
-        if fname.rsplit('.', maxsplit=1)[-1] == 'ac':
-            content = Huffman().decode(fname)
-        else:
-            try:
-                with open(fname, 'r', encoding='UTF-8') as f:
-                    i = 1
-                    content = ''
-                    while i < int(self.from_lines.text()):
-                        i += 1
-                        f.readline()
-                    while i <= int(self.to_lines.text()):
-                        i += 1
-                        content += f.readline()
-            except UnicodeDecodeError:
-                with open(fname, 'r', encoding='GBK') as f:
-                    i = 1
-                    content = ''
-                    while i < int(self.from_lines.text()):
-                        i += 1
-                        f.readline()
-                    while i <= int(self.to_lines.text()):
-                        i += 1
-                        content += f.readline()
+        try:
+            with open(fname, 'r', encoding='UTF-8') as f:
+                i = 1
+                content = ''
+                while i < int(self.from_lines.text()):
+                    i += 1
+                    f.readline()
+                while i <= int(self.to_lines.text()):
+                    i += 1
+                    content += f.readline()
+        except UnicodeDecodeError:
+            with open(fname, 'r', encoding='GBK') as f:
+                i = 1
+                content = ''
+                while i < int(self.from_lines.text()):
+                    i += 1
+                    f.readline()
+                while i <= int(self.to_lines.text()):
+                    i += 1
+                    content += f.readline()
         self.new_tab()
         self.filenames[self.cur_tab] = fname
         self.rightTabWidget.setTabText(self.rightTabWidget.currentIndex(), fname)
